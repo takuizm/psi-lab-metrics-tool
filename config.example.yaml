@@ -1,0 +1,33 @@
+# PSI API設定
+api:
+  key: "${PSI_API_KEY}"  # 環境変数から取得
+  timeout: 60            # タイムアウト（秒）
+  retry_count: 3         # リトライ回数
+  base_delay: 1          # 基本遅延時間（秒）
+  max_delay: 60          # 最大遅延時間（秒）
+
+# 入力設定
+input:
+  targets_csv: "./config/targets.csv"  # 計測対象URL一覧CSV
+  csv_encoding: "utf-8-sig"            # CSVファイルエンコーディング
+
+# 実行設定
+execution:
+  strategies:
+    - "mobile"
+    - "desktop"
+  parallel: false        # 並列実行（将来拡張）
+
+# 出力設定
+output:
+  json_dir: "./output/json"
+  csv_file: "./output/csv/psi_metrics.csv"
+  log_file: "./logs/execution.log"
+  timestamp_format: "%Y%m%d_%H%M%S"
+
+# ログ設定
+logging:
+  level: "INFO"          # DEBUG, INFO, WARNING, ERROR
+  format: "%(asctime)s [%(levelname)s] %(message)s"
+  max_file_size: "10MB"
+  backup_count: 5
