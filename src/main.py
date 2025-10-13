@@ -5,13 +5,15 @@ PSI Lab Metrics Toolのメイン実行モジュール
 大量データ処理、エラーハンドリング、進捗表示を含む統合処理
 """
 
-import sys
 import logging
+import os
 import signal
+import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import List, Dict, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 import click
 
@@ -40,6 +42,7 @@ class MainProcessor:
             config: 設定辞書
         """
         self.config = config
+        self.execution_config = self.config.get('execution', {})
         self.interrupted = False
 
         # シグナルハンドラー設定
@@ -114,13 +117,7 @@ class MainProcessor:
         try:
             # PSI APIクライアント
             api_config = self.config['api']
-            self.psi_client = PSIClient(
-                api_key=api_config['key'],
-                timeout=api_config.get('timeout', 60),
-                retry_count=api_config.get('retry_count', 3),
-                base_delay=api_config.get('base_delay', 1),
-                max_delay=api_config.get('max_delay', 60)
-            )
+            self.psi_client = self._build_psi_client(api_config)
 
             # CSV読み込み
             input_config = self.config['input']
@@ -167,6 +164,9 @@ class MainProcessor:
                 return self._process_dry_run(targets, strategies)
 
             # 実際の処理
+            if self._should_use_parallel(len(targets), len(strategies)):
+                return self._process_targets_parallel(targets, strategies)
+
             return self._process_targets(targets, strategies)
 
         except Exception as e:
@@ -314,6 +314,185 @@ class MainProcessor:
             failed_items=failed_items,
             summary_file=summary_file
         )
+
+    def _process_targets_parallel(self, targets: List[Dict[str, Any]],
+                                  strategies: List[str]) -> Dict[str, Any]:
+        """並列実行でターゲットを処理"""
+        total_operations = len(targets) * len(strategies)
+        max_workers = self._determine_max_workers(total_operations)
+
+        self.logger.info(f"=== 並列計測開始: workers={max_workers} ===")
+
+        all_metrics: List[Dict[str, Any]] = []
+        failed_items: List[Dict[str, Any]] = []
+
+        futures = {}
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for target in targets:
+                if self.interrupted:
+                    break
+                for strategy in strategies:
+                    future = executor.submit(self._parallel_worker_task, target, strategy)
+                    futures[future] = (target, strategy)
+
+            completed = 0
+            total_futures = len(futures)
+
+            for future in as_completed(futures):
+                target, strategy = futures[future]
+                completed += 1
+
+                if self.interrupted:
+                    self.logger.warning("中断シグナルを検知しました。残処理を収束させています。")
+
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    self.logger.error(f"並列タスクエラー: {target['name']} ({strategy}) - {exc}")
+                    failed_items.append({
+                        'target': target['name'],
+                        'url': target['url'],
+                        'strategy': strategy,
+                        'error': str(exc)
+                    })
+                    self.processing_stats['failed_targets'] += 1
+                    continue
+
+                worker_stats = result.get('psi_stats', {})
+                self._merge_psi_stats(worker_stats)
+                self.processing_stats['processed_targets'] += 1
+
+                progress = (completed / max(1, total_futures)) * 100
+                self.logger.info(f"進捗 {completed}/{total_futures} ({progress:.1f}%) - "
+                                 f"{target['name']} ({strategy})")
+
+                status = result.get('status')
+                if status == 'success':
+                    metrics = result['metrics']
+                    self.processing_stats['total_requests'] += 1
+                    all_metrics.append(metrics)
+
+                    try:
+                        self.output_manager.save_json(result['psi_data'], target['name'], strategy)
+                        self.output_manager.append_csv(result['summary'])
+                    except Exception as output_error:
+                        self.logger.error(f"出力処理エラー: {target['name']} ({strategy}) - {output_error}")
+                        failed_items.append({
+                            'target': target['name'],
+                            'url': target['url'],
+                            'strategy': strategy,
+                            'error': f"出力処理エラー: {output_error}"
+                        })
+                        self.processing_stats['failed_targets'] += 1
+                        continue
+
+                    self.processing_stats['successful_targets'] += 1
+
+                    self.logger.info(
+                        f"計測完了: {target['name']} ({strategy}) - "
+                        f"Onload: {metrics.get('onload_ms', 0):.0f}ms, "
+                        f"TTFB: {metrics.get('ttfb_ms', 0):.0f}ms, "
+                        f"LCP: {metrics.get('lcp_ms', 0):.0f}ms"
+                    )
+                else:
+                    error_message = result.get('error_message', '不明なエラー')
+                    if status == 'rate_limit':
+                        self.processing_stats['rate_limit_hits'] += 1
+                    failed_items.append({
+                        'target': target['name'],
+                        'url': target['url'],
+                        'strategy': strategy,
+                        'error': error_message
+                    })
+                    self.processing_stats['failed_targets'] += 1
+
+        summary_file = None
+        if all_metrics:
+            try:
+                summary_file = self.output_manager.save_summary_csv(all_metrics)
+                self.logger.info(f"サマリーファイル保存: {summary_file}")
+            except Exception as e:
+                self.logger.error(f"サマリーファイル保存エラー: {e}")
+
+        success = len(failed_items) == 0 and not self.interrupted
+        return self._create_result_summary(
+            success=success,
+            all_metrics=all_metrics,
+            failed_items=failed_items,
+            summary_file=summary_file
+        )
+
+    def _parallel_worker_task(self, target: Dict[str, Any], strategy: str) -> Dict[str, Any]:
+        worker_client = self._build_psi_client(self.config['api'])
+        metrics_extractor = MetricsExtractor()
+
+        response: Dict[str, Any] = {
+            'status': 'success',
+            'psi_data': None,
+            'metrics': None,
+            'summary': None,
+            'psi_stats': {},
+            'error_message': ''
+        }
+
+        try:
+            psi_data = worker_client.get_page_metrics(target['url'], strategy)
+            target_info = {
+                'name': target['name'],
+                'url': target['url'],
+                'strategy': strategy,
+                'category': target.get('category', ''),
+                'priority': target.get('priority', 'medium'),
+                'row_number': target.get('row_number', 0)
+            }
+            metrics = metrics_extractor.extract_all_metrics(psi_data, target_info)
+            response['psi_data'] = psi_data
+            response['metrics'] = metrics
+            response['summary'] = metrics_extractor.create_summary_metrics(metrics)
+        except PSIRateLimitError as e:
+            response['status'] = 'rate_limit'
+            response['error_message'] = str(e)
+        except Exception as e:
+            response['status'] = 'error'
+            response['error_message'] = str(e)
+        finally:
+            response['psi_stats'] = worker_client.get_stats(include_success_rate=False)
+
+        return response
+
+    def _should_use_parallel(self, target_count: int, strategy_count: int) -> bool:
+        if not self.execution_config.get('parallel'):
+            return False
+
+        if self.interrupted:
+            return False
+
+        return (target_count * strategy_count) > 1
+
+    def _determine_max_workers(self, total_operations: int) -> int:
+        configured = self.execution_config.get('max_workers')
+        if isinstance(configured, int) and configured > 0:
+            return max(1, min(configured, total_operations))
+
+        cpu_count = os.cpu_count() or 2
+        default_workers = max(1, min(4, cpu_count))
+        return max(1, min(default_workers, total_operations))
+
+    def _build_psi_client(self, api_config: Dict[str, Any]) -> PSIClient:
+        return PSIClient(
+            api_key=api_config['key'],
+            timeout=api_config.get('timeout', 60),
+            retry_count=api_config.get('retry_count', 3),
+            base_delay=api_config.get('base_delay', 1),
+            max_delay=api_config.get('max_delay', 60)
+        )
+
+    def _merge_psi_stats(self, worker_stats: Dict[str, Any]):
+        if not worker_stats:
+            return
+
+        if hasattr(self.psi_client, 'merge_external_stats'):
+            self.psi_client.merge_external_stats(worker_stats)
 
     def _process_single_target(self, target: Dict[str, Any], strategy: str) -> Dict[str, Any]:
         """単一ターゲットの処理"""

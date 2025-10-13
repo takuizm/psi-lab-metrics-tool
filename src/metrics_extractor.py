@@ -6,8 +6,8 @@ Splunk Syntheticとの比較に必要なデータを正確に取得。
 """
 
 import logging
-from typing import Dict, Any, Optional, List
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 

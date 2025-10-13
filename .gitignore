@@ -76,8 +76,7 @@ desktop.ini
 config/config.yaml
 config/targets.csv
 
-# テスト・開発用ファイル
-test_*.py
+# テスト・開発用一時ファイル
 debug_*.py
 sample_*.csv
 temp_*.json

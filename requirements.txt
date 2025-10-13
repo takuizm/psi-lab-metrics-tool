@@ -28,7 +28,4 @@ typing-extensions>=4.0.0; python_version < "3.10"
 
 # 開発・テスト用依存関係（オプション）
 # 以下は開発時のみ必要
-# pytest>=7.0.0
-# pytest-cov>=4.0.0
-# flake8>=5.0.0
-# mypy>=0.991
+# 開発時の追加ツールは requirements-dev.txt を参照

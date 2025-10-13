@@ -41,7 +41,7 @@ python -m pip install --upgrade pip
 # 依存関係インストール
 echo
 echo "必要なライブラリをインストールしています..."
-pip install requests>=2.28.0 PyYAML>=6.0 pandas>=1.5.0 click>=8.1.0 python-dotenv>=0.19.0
+pip install -r requirements.txt
 
 if [ $? -ne 0 ]; then
     echo "ライブラリのインストールに失敗しました"
@@ -59,11 +59,6 @@ echo "設定ファイルを準備しています..."
 if [ ! -f "config/config.yaml" ]; then
     cp config.example.yaml config/config.yaml
     echo "config.yaml を作成しました"
-fi
-
-if [ ! -f "config/targets.csv" ]; then
-    cp targets.csv config/targets.csv
-    echo "targets.csv を作成しました"
 fi
 
 # 環境ファイル作成

@@ -4,12 +4,13 @@
 設定ファイルの読み込み、環境変数の処理、設定値の検証を行います。
 """
 
-import os
-import yaml
 import logging
-from typing import Dict, Any, Optional
+import os
 from pathlib import Path
-from dotenv import load_dotenv
+from typing import Any, Dict, Optional
+
+import yaml
+from dotenv import find_dotenv, load_dotenv
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class ConfigManager:
     def __init__(self):
         self._config: Optional[Dict[str, Any]] = None
         self._config_path: Optional[Path] = None
+        self._project_root: Path = Path.cwd()
 
     def load_config(self, config_path: str) -> Dict[str, Any]:
         """
@@ -41,6 +43,7 @@ class ConfigManager:
         """
         try:
             self._config_path = Path(config_path)
+            self._project_root = Path.cwd()
 
             # 環境変数読み込み
             self._load_env_variables()
@@ -58,6 +61,9 @@ class ConfigManager:
             # 環境変数置換
             self._config = self._replace_env_vars(self._config)
 
+            # パスの正規化
+            self._normalize_paths()
+
             # 設定検証
             self._validate_config()
 
@@ -71,11 +77,16 @@ class ConfigManager:
 
     def _load_env_variables(self):
         """環境変数を読み込み"""
-        # .envファイルがある場合は読み込み
-        env_file = self._config_path.parent / '.env' if self._config_path else Path('.env')
-        if env_file.exists():
-            load_dotenv(env_file)
-            logger.debug(f".envファイルを読み込みました: {env_file}")
+        # .envファイル検索（作業ディレクトリ優先）
+        env_path = find_dotenv(usecwd=True)
+        if not env_path and self._config_path:
+            candidate = self._config_path.parent / '.env'
+            if candidate.exists():
+                env_path = str(candidate)
+
+        if env_path:
+            load_dotenv(env_path)
+            logger.debug(f".envファイルを読み込みました: {env_path}")
 
     def _replace_env_vars(self, obj: Any) -> Any:
         """
@@ -138,11 +149,7 @@ class ConfigManager:
         if not targets_csv:
             raise ConfigError("計測対象CSVファイルのパスが設定されていません")
 
-        # CSVファイルの存在確認
         csv_path = Path(targets_csv)
-        if not csv_path.is_absolute():
-            csv_path = self._config_path.parent / targets_csv
-
         if not csv_path.exists():
             raise ConfigError(f"計測対象CSVファイルが見つかりません: {csv_path}")
 
@@ -157,21 +164,73 @@ class ConfigManager:
 
         # JSONディレクトリ
         json_dir = Path(output_config.get('json_dir', './output/json'))
-        if not json_dir.is_absolute():
-            json_dir = self._config_path.parent / json_dir
         json_dir.mkdir(parents=True, exist_ok=True)
 
         # CSVファイルのディレクトリ
         csv_file = Path(output_config.get('csv_file', './output/csv/psi_metrics.csv'))
-        if not csv_file.is_absolute():
-            csv_file = self._config_path.parent / csv_file
         csv_file.parent.mkdir(parents=True, exist_ok=True)
 
         # ログファイルのディレクトリ
         log_file = Path(output_config.get('log_file', './logs/execution.log'))
-        if not log_file.is_absolute():
-            log_file = self._config_path.parent / log_file
         log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    def _normalize_paths(self):
+        """設定内のパスをプロジェクトルート基準で正規化"""
+        if not self._config:
+            return
+
+        # 入力ファイル
+        input_config = self._config.get('input', {})
+        if 'targets_csv' in input_config:
+            resolved_csv = self._resolve_existing_path(input_config['targets_csv'])
+            input_config['targets_csv'] = str(resolved_csv)
+
+        # 出力関連
+        output_config = self._config.get('output', {})
+        for key in ['json_dir', 'csv_file', 'log_file']:
+            if key in output_config:
+                output_config[key] = str(self._resolve_output_path(output_config[key]))
+
+    def _resolve_existing_path(self, path_value: Any) -> Path:
+        """既存ファイルのパスを解決"""
+        candidate = Path(str(path_value))
+        if candidate.is_absolute() and candidate.exists():
+            return candidate
+
+        # プロジェクトルート優先
+        root_candidate = self._project_root / candidate
+        if root_candidate.exists():
+            return root_candidate
+
+        # 設定ファイルディレクトリも許容（後方互換）
+        if self._config_path:
+            config_candidate = self._config_path.parent / candidate
+            if config_candidate.exists():
+                return config_candidate
+
+        # 存在しない場合はプロジェクトルートに配置予定として返却
+        return (self._project_root / candidate).resolve(strict=False)
+
+    def _resolve_output_path(self, path_value: Any) -> Path:
+        """出力系パスを解決（存在しなくても良い）"""
+        candidate = Path(str(path_value))
+        if candidate.is_absolute():
+            return candidate
+
+        # プロジェクトルート基準で絶対パス化
+        resolved = (self._project_root / candidate).resolve(strict=False)
+
+        # 後方互換: 既存ファイルが config 側にある場合はそちらを使用
+        if not resolved.exists() and self._config_path:
+            legacy_candidate = (self._config_path.parent / candidate).resolve(strict=False)
+            if legacy_candidate.exists():
+                logger.warning(
+                    f"出力パス {candidate} はプロジェクトルートに存在しません。"
+                    f"既存ファイルが見つかったため {legacy_candidate} を使用します"
+                )
+                return legacy_candidate
+
+        return resolved
 
     def get_config(self) -> Dict[str, Any]:
         """現在の設定を取得"""

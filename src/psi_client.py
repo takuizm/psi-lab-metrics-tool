@@ -5,12 +5,12 @@ Google PageSpeed Insights APIとの通信を行います。
 レート制限、リトライ機能、エラーハンドリングを含む堅牢な実装。
 """
 
-import time
-import random
-import requests
 import logging
-from typing import Dict, Optional, Any
-from urllib.parse import quote
+import random
+import time
+from typing import Any, Dict, Optional
+
+import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -285,13 +285,14 @@ class PSIClient:
                 (url.startswith('http://') or url.startswith('https://')) and
                 len(url) <= 2000)
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self, include_success_rate: bool = True) -> Dict[str, Any]:
         """統計情報を取得"""
         stats = self.stats.copy()
-        if stats['total_requests'] > 0:
-            stats['success_rate'] = stats['successful_requests'] / stats['total_requests']
-        else:
-            stats['success_rate'] = 0.0
+        if include_success_rate:
+            if stats['total_requests'] > 0:
+                stats['success_rate'] = stats['successful_requests'] / stats['total_requests']
+            else:
+                stats['success_rate'] = 0.0
         return stats
 
     def reset_stats(self):
@@ -304,6 +305,16 @@ class PSIClient:
             'retries_performed': 0
         }
         logger.debug("PSI統計情報をリセットしました")
+
+    def merge_external_stats(self, external_stats: Dict[str, Any]):
+        """外部で収集した統計情報を集計"""
+        if not external_stats:
+            return
+
+        for key in ['total_requests', 'successful_requests', 'failed_requests',
+                    'rate_limit_hits', 'retries_performed']:
+            if key in external_stats:
+                self.stats[key] += external_stats.get(key, 0)
 
     def __del__(self):
         """デストラクタ - セッションを閉じる"""

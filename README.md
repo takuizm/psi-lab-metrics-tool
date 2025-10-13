@@ -21,46 +21,45 @@ Google PageSpeed Insights を使って、複数のウェブサイトの表示速
 
 ---
 
-## セットアップ
+## セットアップ（初回のみ）
 
-### ステップ1: Python のインストール
+### 事前準備チェック
+- パソコンに **Python 3.8 以上** が入っている（入っていなければ以下の手順で準備）
+- Google Cloud Console にアクセスできる Google アカウントがある
+- 計測したいサイト一覧を Excel で編集できる
 
-#### Windows の場合
-1. [Python公式サイト](https://www.python.org/downloads/) にアクセス
-2. 最新版の Python をダウンロード
-3. インストール時に **必ず** `Add Python to PATH` にチェック
-4. インストール完了
+### 1. Python を準備する
 
-#### Mac の場合
-- **方法1（推奨）**: `brew install python`
-- **方法2**: [Python公式サイト](https://www.python.org/downloads/) からダウンロード
+#### Windows
+1. [Python公式サイト](https://www.python.org/downloads/) を開きます。
+2. 「Download Python ○○」をクリックしてインストーラーを保存します。
+3. インストーラーを起動し、**必ず** 「Add Python to PATH」にチェックをつけてからインストールします。
 
-### ステップ2: ツールのセットアップ
+#### macOS
+- Homebrew がある場合：ターミナルで `brew install python` を実行します。
+- Homebrew がない場合：[Python公式サイト](https://www.python.org/downloads/) から `.pkg` ファイルをダウンロードしてインストールします。
 
-#### Windows の場合
-`setup.bat` をダブルクリック
+### 2. ツールを初期化する
 
-#### Mac の場合
-`setup.sh` をダブルクリック
+1. ダウンロードしたフォルダを任意の場所に置きます（例：`Documents/psi-lab-metrics-tool/`）。
+2. Windows の方は `setup.bat`、macOS の方は `setup.sh` をダブルクリックしてツールを準備します。
+   - 数分かかることがあります。黒いウィンドウが閉じたら完了です。
 
-### ステップ3: Google PSI API キーの取得
+### 3. Google PSI API キーを取得する
+1. [Google Cloud Console](https://console.cloud.google.com/) にログインします。
+2. 画面左上のプロジェクトセレクタで「新しいプロジェクト」を作成します。
+3. メニューから **APIとサービス → ライブラリ** を開き、「PageSpeed Insights API」を検索して有効化します。
+4. 次に **APIとサービス → 認証情報** を開き、「認証情報を作成」→「API キー」を選択します。
+5. 表示された API キーをコピーし、失くさないようメモ帳などに控えておきます。
 
-1. [Google Cloud Console](https://console.cloud.google.com/) にアクセス
-2. 新しいプロジェクトを作成
-3. **APIとサービス** → **ライブラリ** → 「PageSpeed Insights API」を検索して有効化
-4. **APIとサービス** → **認証情報** → **APIキー** を作成
-5. 作成されたAPIキーをコピーして保存
+### 4. 設定ファイルを整える
 
-### ステップ4: 設定
+#### API キーを登録する
+1. フォルダ内の `.env` ファイルをメモ帳（macOS はテキストエディット）で開きます。
+2. `PSI_API_KEY=your_api_key_here` の `your_api_key_here` を、控えておいた API キーに置き換えて保存します。
 
-#### APIキー設定
-`.env` ファイルを開いて以下を設定：
-```
-PSI_API_KEY=あなたのAPIキー
-```
-
-#### 計測対象URL設定
-`targets.csv` をExcelで開いて計測したいサイトを設定：
+#### 計測対象サイトを登録する
+`targets.csv` を Excel で開いて計測したいサイトを入力します：
 ```csv
 url,name,enabled,category
 https://www.example.com,サンプルサイト,true,企業サイト
@@ -72,6 +71,8 @@ https://www.google.com,Google,true,検索エンジン
 - `name`: サイトの名前（結果ファイルで使用）
 - `enabled`: 計測するかどうか（`true`=する、`false`=しない）
 - `category`: サイトの分類（任意）
+
+必要に応じて `priority` 列（例：`high` / `medium` / `low`）を追加すると、結果の並べ替えに使えます。
 
 ---
 
@@ -89,9 +90,16 @@ https://www.google.com,Google,true,検索エンジン
 - **[3]** デスクトップのみ
 - **[4]** ドライラン（設定確認のみ）
 
+**ヒント:** ドライランは API の利用回数を消費せず、設定や対象リストの確認だけ行えます。初回はドライランでエラーが出ないかチェックすると安心です。
+
 ### 実行時間の目安
 - 1サイト: 約30秒〜1分
 - 10サイト: 約5分〜10分
+
+### 並列実行オプション
+`config/config.yaml` の `execution` セクションで `parallel: true` に設定すると、ターゲットと戦略の組み合わせをワーカースレッドで並列処理できます。`max_workers` を指定すると上限を制御できます（未設定時はCPUコア数に応じて最大4ワーカー）。レート制限の影響を受けやすいので、まずは小さな値（2〜3）で試してAPIクォータの消費量を確認してください。サーバーやネットワーク負荷が高い場合は `parallel: false` に戻すと安全です。
+
+> **注意**: 並列設定を有効にすると Google API の無料枠を早く使い切る可能性があります。定期運用前に少数のサイトで挙動を確認してください。
 
 ---
 
@@ -233,12 +241,14 @@ psi-lab-metrics-tool/
 ├── targets.csv              # 計測対象URL一覧
 ├── README.md                # このファイル（使用方法）
 ├── requirements.txt         # Python依存関係
+├── requirements-dev.txt     # 開発用ツール（pytest, black など）
 ├── config.example.yaml      # 設定テンプレート
 ├── .env.example             # 環境変数テンプレート
 ├── src/                     # ソースコード
 ├── config/                  # 設定ファイル
 ├── output/                  # 結果出力先
 ├── logs/                    # 実行ログ
+├── tests/                   # 自動テスト
 └── docs/                    # 技術ドキュメント
 ```
 
@@ -252,6 +262,8 @@ psi-lab-metrics-tool/
 4. `targets.csv` で計測対象URLを設定
 5. `run.bat` または `run.sh` で実行
 
+開発者は仮想環境を有効化した上で `pip install -r requirements-dev.txt` を実行し、`pytest --maxfail=1 --disable-warnings` や `black src tests` で品質を維持してください。
+
 ## サポート
 
 - **ログ確認**: `logs/execution.log`
@@ -259,5 +271,5 @@ psi-lab-metrics-tool/
 
 ---
 
-**最終更新**: 2025年9月18日
+**最終更新**: 2025年10月13日
 **作成者**: Takuya Koizumi

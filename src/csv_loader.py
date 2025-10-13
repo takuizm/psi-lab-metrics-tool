@@ -5,11 +5,12 @@ CSV読み込みモジュール
 大量データ（1000件程度）の効率的な処理に対応。
 """
 
-import pandas as pd
 import logging
-from typing import List, Dict, Any, Optional, Set
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
 from urllib.parse import urlparse
+
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
