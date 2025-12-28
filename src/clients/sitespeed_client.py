@@ -7,14 +7,136 @@ HAR/Waterfall/メトリクスを取得します。
 
 import json
 import logging
-import os
+import re
 import shutil
 import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+
+class URLValidationError(ValueError):
+    """URLバリデーションエラー"""
+    pass
+
+
+class OptionValidationError(ValueError):
+    """オプションバリデーションエラー"""
+    pass
+
+
+def validate_url(url: str) -> str:
+    """
+    URLをバリデートし、安全な形式であることを確認
+
+    Args:
+        url: 検証するURL
+
+    Returns:
+        バリデート済みURL
+
+    Raises:
+        URLValidationError: 無効または危険なURL
+    """
+    if not url or not isinstance(url, str):
+        raise URLValidationError("URLが空または無効です")
+
+    # URLをパース
+    try:
+        parsed = urlparse(url)
+    except Exception as e:
+        raise URLValidationError(f"URLのパースに失敗: {e}")
+
+    # スキームチェック（http/httpsのみ許可）
+    if parsed.scheme not in ('http', 'https'):
+        raise URLValidationError(
+            f"無効なスキーム: {parsed.scheme}（http/httpsのみ許可）"
+        )
+
+    # ホストが存在するか
+    if not parsed.netloc:
+        raise URLValidationError("ホスト名がありません")
+
+    # 危険な文字のチェック（シェルメタ文字）
+    dangerous_chars = [';', '|', '&', '$', '`', '(', ')', '{', '}', '<', '>', '\n', '\r']
+    for char in dangerous_chars:
+        if char in url:
+            raise URLValidationError(f"URLに危険な文字が含まれています: {repr(char)}")
+
+    # ローカルホスト/プライベートIPへのアクセス制限（SSRF対策）
+    host_lower = parsed.netloc.lower().split(':')[0]
+    blocked_hosts = ['localhost', '127.0.0.1', '0.0.0.0', '::1']
+    if host_lower in blocked_hosts:
+        raise URLValidationError(f"ローカルホストへのアクセスは禁止されています: {host_lower}")
+
+    # プライベートIPレンジのチェック
+    if _is_private_ip(host_lower):
+        raise URLValidationError(f"プライベートIPへのアクセスは禁止されています: {host_lower}")
+
+    return url
+
+
+def _is_private_ip(host: str) -> bool:
+    """プライベートIPかどうかをチェック"""
+    import ipaddress
+    try:
+        ip = ipaddress.ip_address(host)
+        return ip.is_private or ip.is_loopback or ip.is_reserved
+    except ValueError:
+        # IPアドレスではない（ホスト名）
+        return False
+
+
+def validate_option_key(key: str) -> str:
+    """
+    オプションキーをバリデート
+
+    Args:
+        key: オプションキー
+
+    Returns:
+        バリデート済みキー
+
+    Raises:
+        OptionValidationError: 無効なオプションキー
+    """
+    if not key or not isinstance(key, str):
+        raise OptionValidationError("オプションキーが空または無効です")
+
+    # 英数字、ハイフン、アンダースコア、ドットのみ許可
+    if not re.match(r'^[a-zA-Z][a-zA-Z0-9._-]*$', key):
+        raise OptionValidationError(
+            f"無効なオプションキー: {key}（英字で始まり、英数字・ハイフン・アンダースコア・ドットのみ許可）"
+        )
+
+    return key
+
+
+def validate_option_value(value: Any) -> str:
+    """
+    オプション値をバリデート
+
+    Args:
+        value: オプション値
+
+    Returns:
+        バリデート済み値（文字列）
+
+    Raises:
+        OptionValidationError: 無効なオプション値
+    """
+    str_value = str(value)
+
+    # 危険な文字のチェック
+    dangerous_chars = [';', '|', '&', '$', '`', '(', ')', '{', '}', '<', '>', '\n', '\r']
+    for char in dangerous_chars:
+        if char in str_value:
+            raise OptionValidationError(f"オプション値に危険な文字が含まれています: {repr(char)}")
+
+    return str_value
 
 
 class SitespeedError(Exception):
@@ -192,7 +314,17 @@ class SitespeedClient:
         output_dir: Path,
         extra_options: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
-        """sitespeed.ioコマンドを構築"""
+        """
+        sitespeed.ioコマンドを構築
+
+        セキュリティ対策:
+        - URLはhttp/httpsスキームのみ許可
+        - シェルメタ文字を含むURLを拒否
+        - ローカルホスト/プライベートIPへのアクセスを禁止（SSRF対策）
+        - extra_optionsのキー/値もバリデート
+        """
+        # URLバリデーション（コマンドインジェクション/SSRF対策）
+        validated_url = validate_url(url)
 
         if self.docker:
             cmd = [
@@ -205,7 +337,7 @@ class SitespeedClient:
 
         # 基本オプション
         cmd.extend([
-            url,
+            validated_url,
             "--outputFolder", str(output_dir) if not self.docker else "/sitespeed.io",
             "-b", self.browser,
             "-n", str(self.iterations),
@@ -225,13 +357,17 @@ class SitespeedClient:
         # スクリーンショット
         cmd.extend(["--screenshot.type", "png"])
 
-        # 追加オプション
+        # 追加オプション（バリデーション付き）
         if extra_options:
             for key, value in extra_options.items():
+                # キーのバリデーション
+                validated_key = validate_option_key(key)
                 if value is True:
-                    cmd.append(f"--{key}")
+                    cmd.append(f"--{validated_key}")
                 elif value is not False and value is not None:
-                    cmd.extend([f"--{key}", str(value)])
+                    # 値のバリデーション
+                    validated_value = validate_option_value(value)
+                    cmd.extend([f"--{validated_key}", validated_value])
 
         return cmd
 

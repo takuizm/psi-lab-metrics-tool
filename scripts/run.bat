@@ -56,10 +56,10 @@ if not exist "config\config.yaml" (
     exit /b 1
 )
 
-if not exist "targets.csv" (
+if not exist "input\targets.csv" (
     echo [ERROR] Target file not found
     echo.
-    echo Please create targets.csv and set target URLs
+    echo Please create input\targets.csv and set target URLs
     pause
     exit /b 1
 )
@@ -117,7 +117,7 @@ echo ==========================================
 echo.
 
 REM Execute Python
-python -m src.main --strategy %strategy% %dryrun%
+python -m src.cli.psi_main --strategy %strategy% %dryrun%
 
 if %errorlevel% equ 0 (
     echo.

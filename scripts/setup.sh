@@ -51,13 +51,13 @@ fi
 # ディレクトリ作成
 echo
 echo "必要なディレクトリを作成しています..."
-mkdir -p config output/json output/csv logs src
+mkdir -p config input output/json output/csv logs src
 
 # 設定ファイルコピー
 echo
 echo "設定ファイルを準備しています..."
 if [ ! -f "config/config.yaml" ]; then
-    cp config.example.yaml config/config.yaml
+    cp config/config.example.yaml config/config.yaml
     echo "config.yaml を作成しました"
 fi
 
@@ -70,7 +70,7 @@ if [ ! -f ".env" ]; then
 fi
 
 # 実行権限付与
-chmod +x run.sh
+chmod +x scripts/run.sh
 
 echo
 echo "=========================================="
@@ -85,9 +85,9 @@ echo
 echo "2. .env ファイルを開いてAPIキーを設定"
 echo "   PSI_API_KEY=あなたのAPIキー"
 echo
-echo "3. targets.csv を開いて計測対象URLを設定"
+echo "3. input/targets.csv を開いて計測対象URLを設定"
 echo
-echo "4. ./run.sh を実行"
-echo "   または run.sh をダブルクリック"
+echo "4. scripts/run.sh を実行"
+echo "   または scripts/run.sh をダブルクリック"
 echo
 echo "=========================================="

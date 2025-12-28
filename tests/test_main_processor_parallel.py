@@ -2,7 +2,7 @@ from typing import Dict, Any, List
 
 import pytest
 
-from src import main as main_module
+from src.cli import psi_main as main_module
 
 
 class StubCSVLoader:
@@ -185,4 +185,3 @@ def test_parallel_processing_merges_results(tmp_path, monkeypatch):
     psi_stats = processor.psi_client.get_stats()
     assert psi_stats["total_requests"] == 4
     assert psi_stats["successful_requests"] == 4
-*** End Patch

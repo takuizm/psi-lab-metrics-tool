@@ -59,6 +59,7 @@ REM Create directories
 echo.
 echo Creating directories...
 if not exist "config" mkdir config
+if not exist "input" mkdir input
 if not exist "output" mkdir output
 if not exist "output\json" mkdir output\json
 if not exist "output\csv" mkdir output\csv
@@ -69,13 +70,8 @@ REM Copy configuration files
 echo.
 echo Preparing configuration files...
 if not exist "config\config.yaml" (
-    copy "config.example.yaml" "config\config.yaml" >nul
+    copy "config\config.example.yaml" "config\config.yaml" >nul
     echo [OK] config.yaml created
-)
-
-if not exist "config\targets.csv" (
-    copy "targets.csv" "config\targets.csv" >nul
-    echo [OK] targets.csv created
 )
 
 REM Create environment file
@@ -99,7 +95,7 @@ echo.
 echo 2. Open .env file and set your API key
 echo    PSI_API_KEY=your_api_key_here
 echo.
-echo 3. Open targets.csv and set target URLs
+echo 3. Open input\targets.csv and set target URLs
 echo.
 echo 4. Double-click run.bat to execute
 echo.

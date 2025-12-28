@@ -17,11 +17,11 @@ from typing import Any, Dict, List, Optional
 
 import click
 
-from .config_manager import ConfigManager, ConfigError
-from .csv_loader import CSVLoader, CSVError
-from .psi_client import PSIClient, PSIAPIError, PSIRateLimitError
-from .metrics_extractor import MetricsExtractor, MetricsExtractionError
-from .output_manager import OutputManager, OutputError
+from src.io.config_manager import ConfigManager, ConfigError
+from src.io.csv_loader import CSVLoader, CSVError
+from src.clients.psi_client import PSIClient, PSIAPIError, PSIRateLimitError
+from src.extractors.metrics_extractor import MetricsExtractor, MetricsExtractionError
+from src.io.output_manager import OutputManager, OutputError
 
 logger = logging.getLogger(__name__)
 

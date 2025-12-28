@@ -199,10 +199,10 @@ open output/sitespeed/example_com_*/index.html
 
 ```bash
 # 1. PSI計測（基本メトリクス）
-python -m src.main -c config/config.yaml
+python -m src.cli.psi_main -c config/config.yaml
 
 # 2. sitespeed.io計測（Waterfall詳細）
-python -m src.sitespeed_main -c config/config.yaml
+python -m src.cli.sitespeed_main -c config/config.yaml
 ```
 
 ## トラブルシューティング

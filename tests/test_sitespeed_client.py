@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.sitespeed_client import (
+from src.clients.sitespeed_client import (
     SitespeedClient,
     SitespeedError,
     SitespeedNotFoundError,

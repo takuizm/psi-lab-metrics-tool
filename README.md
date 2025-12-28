@@ -2,7 +2,7 @@
 
 **簡単操作でウェブサイトの表示速度を自動計測！**
 
-Google PageSpeed Insights を使って、複数のウェブサイトの表示速度を一括で計測し、結果をCSVファイルで保存するツールです。
+Google PageSpeed Insights と sitespeed.io を使って、複数のウェブサイトの表示速度を一括で計測し、結果をCSVファイルで保存するツールです。
 
 ## 特徴
 
@@ -11,6 +11,14 @@ Google PageSpeed Insights を使って、複数のウェブサイトの表示速
 - **モバイル・デスクトップ対応** - 両方の速度を測定
 - **Excel対応** - 結果はCSVファイルで保存
 - **定期実行** - 自動で継続監視が可能
+- **2つの計測エンジン** - PSI API と sitespeed.io に対応
+
+## 計測エンジン
+
+| エンジン | 特徴 | 必要なもの |
+|---------|------|-----------|
+| **PSI (PageSpeed Insights)** | Google のラボデータ、Core Web Vitals 対応 | API キー（無料） |
+| **sitespeed.io** | 詳細な Waterfall 分析、ローカル計測 | Docker または npm |
 
 ## 取得できるデータ
 - **Onload**: ページの読み込み完了時間
@@ -18,6 +26,7 @@ Google PageSpeed Insights を使って、複数のウェブサイトの表示速
 - **LCP**: 最大コンテンツの表示時間
 - **CLS**: レイアウトのずれ具合
 - **Speed Index**: 表示速度の総合指標
+- **Waterfall**: リクエストごとの詳細タイミング（sitespeed.io）
 
 ---
 
@@ -42,7 +51,7 @@ Google PageSpeed Insights を使って、複数のウェブサイトの表示速
 ### 2. ツールを初期化する
 
 1. ダウンロードしたフォルダを任意の場所に置きます（例：`Documents/psi-lab-metrics-tool/`）。
-2. Windows の方は `setup.bat`、macOS の方は `setup.sh` をダブルクリックしてツールを準備します。
+2. Windows の方は `scripts/setup.bat`、macOS の方は `scripts/setup.sh` を実行してツールを準備します。
    - 数分かかることがあります。黒いウィンドウが閉じたら完了です。
 
 ### 3. Google PSI API キーを取得する
@@ -59,7 +68,7 @@ Google PageSpeed Insights を使って、複数のウェブサイトの表示速
 2. `PSI_API_KEY=your_api_key_here` の `your_api_key_here` を、控えておいた API キーに置き換えて保存します。
 
 #### 計測対象サイトを登録する
-`targets.csv` を Excel で開いて計測したいサイトを入力します：
+`input/targets.csv` を Excel で開いて計測したいサイトを入力します：
 ```csv
 url,name,enabled,category
 https://www.example.com,サンプルサイト,true,企業サイト
@@ -79,10 +88,10 @@ https://www.google.com,Google,true,検索エンジン
 ## 実行方法
 
 #### Windows の場合
-`run.bat` をダブルクリック
+`scripts/run.bat` をダブルクリック
 
 #### Mac の場合
-`run.sh` をダブルクリック
+`scripts/run.sh` をダブルクリック
 
 メニューから実行方法を選択：
 - **[1]** モバイル + デスクトップ両方（推奨）
@@ -103,6 +112,76 @@ https://www.google.com,Google,true,検索エンジン
 
 ---
 
+## sitespeed.io で計測する
+
+sitespeed.io を使うと、ローカル環境から詳細な Waterfall 分析ができます。
+
+### 仕組み（APIキーが不要な理由）
+
+sitespeed.io はオープンソースのツールで、**すべての計測がローカルで完結**します。
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  あなたのPC                                                  │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Docker コンテナ (sitespeedio/sitespeed.io)          │   │
+│  │  ┌─────────────┐  ┌─────────────┐                   │   │
+│  │  │ sitespeed.io │  │  Chromium   │  → 計測対象サイト │   │
+│  │  │   (計測ツール) │  │ (ブラウザ)   │                   │   │
+│  │  └─────────────┘  └─────────────┘                   │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                          ↓ 結果出力                         │
+│                    output/sitespeed/                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Docker モード（`--docker`）の動作:**
+1. Docker が公式イメージ `sitespeedio/sitespeed.io:latest` をダウンロード（初回のみ）
+2. コンテナ内で sitespeed.io と Chromium ブラウザを起動
+3. コンテナ内のブラウザが対象サイトにアクセスして計測
+4. 結果をローカルの `output/sitespeed/` に保存
+
+**PSI との違い:**
+
+| 項目 | PSI | sitespeed.io |
+|------|-----|--------------|
+| 実行場所 | Google のサーバー | あなたの PC（Docker内） |
+| 認証 | APIキーが必要 | **不要** |
+| 必要なもの | インターネット接続 + APIキー | Docker のみ |
+| 利用制限 | 1日あたりのクエリ数制限あり | **無制限** |
+
+### 前提条件
+- **Docker** がインストールされていること（推奨）
+- または `npm install -g sitespeed.io` でローカルインストール
+
+### 実行方法
+
+```bash
+# Docker モード（推奨）
+python -m src.cli.sitespeed_main --docker -c config/config.yaml
+
+# 特定のターゲットCSVを指定
+python -m src.cli.sitespeed_main --docker --targets-csv input/targets.csv
+
+# モバイルエミュレーション
+python -m src.cli.sitespeed_main --docker --mobile
+```
+
+### 出力ファイル
+- `output/sitespeed/` - HAR ファイル、スクリーンショット、詳細レポート
+- `output/waterfall/` - Waterfall JSON データ
+
+### PSI との使い分け
+
+| 用途 | おすすめ |
+|-----|---------|
+| Core Web Vitals の確認 | PSI |
+| 詳細なネットワーク分析 | sitespeed.io |
+| API 無料枠を節約したい | sitespeed.io |
+| 定期的な監視 | PSI（APIで自動化しやすい） |
+
+---
+
 ## 結果の確認
 
 ### 出力ファイル
@@ -110,10 +189,12 @@ https://www.google.com,Google,true,検索エンジン
 psi-lab-metrics-tool/
   output/
     csv/
-      psi_metrics.csv        ← メインの結果ファイル
+      psi_metrics.csv        ← PSI メインの結果ファイル
     json/
-      サイト名_mobile_日時.json   ← 詳細データ
+      サイト名_mobile_日時.json   ← PSI 詳細データ
       サイト名_desktop_日時.json
+    sitespeed/               ← sitespeed.io 詳細レポート
+    waterfall/               ← Waterfall JSON データ
   logs/
     execution.log          ← 実行ログ
 ```
@@ -178,9 +259,9 @@ Excelで `output/csv/psi_metrics.csv` を開くと以下のような表になり
 3. 実行頻度を下げる
 
 #### 「計測対象ファイルが見つかりません」
-**原因**: `targets.csv` が存在しない、または形式が間違っている
+**原因**: `input/targets.csv` が存在しない、または形式が間違っている
 **解決方法**:
-1. `targets.csv` ファイルが存在するか確認
+1. `input/targets.csv` ファイルが存在するか確認
 2. CSV形式が正しいか確認（最低限 `url,name` の列が必要）
 
 #### 「数値が他のツールと違う」
@@ -194,7 +275,7 @@ Excelで `output/csv/psi_metrics.csv` を開くと以下のような表になり
 1. タスクスケジューラを開く
 2. 基本タスクの作成
 3. 毎日・毎週などのスケジュールを設定
-4. プログラム: `C:\path\to\run.bat` を指定
+4. プログラム: `C:\path\to\scripts\run.bat` を指定
 
 ### Mac（cron）
 ```bash
@@ -202,7 +283,7 @@ Excelで `output/csv/psi_metrics.csv` を開くと以下のような表になり
 crontab -e
 
 # 毎日午前2時に実行する場合
-0 2 * * * /path/to/run.sh
+0 2 * * * /path/to/scripts/run.sh
 ```
 
 ---
@@ -221,7 +302,7 @@ crontab -e
 3. 異常値（極端に大きい・小さい値）を除外
 
 ### カテゴリ別分析
-`targets.csv` の `category` 列を活用：
+`input/targets.csv` の `category` 列を活用：
 ```csv
 url,name,enabled,category
 https://www.company-a.com,A社,true,企業サイト
@@ -236,18 +317,21 @@ Excelのピボットテーブルでカテゴリ別の平均値を算出できま
 
 ```
 psi-lab-metrics-tool/
-├── setup.bat / setup.sh     # セットアップスクリプト
-├── run.bat / run.sh         # 実行スクリプト
-├── targets.csv              # 計測対象URL一覧
 ├── README.md                # このファイル（使用方法）
 ├── requirements.txt         # Python依存関係
 ├── requirements-dev.txt     # 開発用ツール（pytest, black など）
-├── config.example.yaml      # 設定テンプレート
 ├── .env.example             # 環境変数テンプレート
-├── src/                     # ソースコード
+├── scripts/                 # 実行スクリプト
+│   ├── setup.bat / setup.sh
+│   └── run.bat / run.sh
 ├── config/                  # 設定ファイル
+│   ├── config.yaml
+│   └── config.example.yaml
+├── input/                   # 入力データ
+│   └── targets.csv          # 計測対象URL一覧
 ├── output/                  # 結果出力先
 ├── logs/                    # 実行ログ
+├── src/                     # ソースコード
 ├── tests/                   # 自動テスト
 └── docs/                    # 技術ドキュメント
 ```
@@ -256,11 +340,11 @@ psi-lab-metrics-tool/
 
 ## 今すぐ始める
 
-1. `setup.bat` (Windows) または `setup.sh` (Mac) をダブルクリック
+1. `scripts/setup.bat` (Windows) または `scripts/setup.sh` (Mac) を実行
 2. Google Cloud Console でPSI APIキーを取得
 3. `.env` ファイルにAPIキーを設定
-4. `targets.csv` で計測対象URLを設定
-5. `run.bat` または `run.sh` で実行
+4. `input/targets.csv` で計測対象URLを設定
+5. `scripts/run.bat` または `scripts/run.sh` で実行
 
 開発者は仮想環境を有効化した上で `pip install -r requirements-dev.txt` を実行し、`pytest --maxfail=1 --disable-warnings` や `black src tests` で品質を維持してください。
 
@@ -271,5 +355,5 @@ psi-lab-metrics-tool/
 
 ---
 
-**最終更新**: 2025年10月13日
+**最終更新**: 2025年12月28日
 **作成者**: Takuya Koizumi

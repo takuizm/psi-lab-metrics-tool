@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from src.sitespeed_extractor import SitespeedExtractor, SitespeedExtractionError
+from src.extractors.sitespeed_extractor import SitespeedExtractor, SitespeedExtractionError
+from src.utils.url_utils import determine_resource_type
 
 
 @pytest.fixture
@@ -200,28 +201,24 @@ class TestSitespeedExtractor:
 
 
 class TestResourceTypeDetection:
-    """リソースタイプ判定のテスト"""
+    """リソースタイプ判定のテスト（共通ユーティリティ関数）"""
 
-    @pytest.fixture
-    def extractor(self):
-        return SitespeedExtractor()
-
-    def test_determine_resource_type_by_content_type(self, extractor):
+    def test_determine_resource_type_by_content_type(self):
         """Content-Typeによるリソースタイプ判定"""
-        assert extractor._determine_resource_type("", "text/html") == "document"
-        assert extractor._determine_resource_type("", "text/css") == "stylesheet"
-        assert extractor._determine_resource_type("", "application/javascript") == "script"
-        assert extractor._determine_resource_type("", "image/png") == "image"
-        assert extractor._determine_resource_type("", "font/woff2") == "font"
-        assert extractor._determine_resource_type("", "application/json") == "fetch"
+        assert determine_resource_type("", "text/html") == "document"
+        assert determine_resource_type("", "text/css") == "stylesheet"
+        assert determine_resource_type("", "application/javascript") == "script"
+        assert determine_resource_type("", "image/png") == "image"
+        assert determine_resource_type("", "font/woff2") == "font"
+        assert determine_resource_type("", "application/json") == "fetch"
 
-    def test_determine_resource_type_by_url_extension(self, extractor):
+    def test_determine_resource_type_by_url_extension(self):
         """URL拡張子によるリソースタイプ判定"""
-        assert extractor._determine_resource_type("https://example.com/style.css", "") == "stylesheet"
-        assert extractor._determine_resource_type("https://example.com/app.js", "") == "script"
-        assert extractor._determine_resource_type("https://example.com/logo.png", "") == "image"
-        assert extractor._determine_resource_type("https://example.com/font.woff2", "") == "font"
+        assert determine_resource_type("https://example.com/style.css", "") == "stylesheet"
+        assert determine_resource_type("https://example.com/app.js", "") == "script"
+        assert determine_resource_type("https://example.com/logo.png", "") == "image"
+        assert determine_resource_type("https://example.com/font.woff2", "") == "font"
 
-    def test_determine_resource_type_fallback(self, extractor):
+    def test_determine_resource_type_fallback(self):
         """判定不能な場合はotherになること"""
-        assert extractor._determine_resource_type("https://example.com/unknown", "") == "other"
+        assert determine_resource_type("https://example.com/unknown", "") == "other"

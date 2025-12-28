@@ -43,10 +43,10 @@ if [ ! -f "config/config.yaml" ]; then
     exit 1
 fi
 
-if [ ! -f "targets.csv" ]; then
+if [ ! -f "input/targets.csv" ]; then
     echo "計測対象ファイルが見つかりません"
     echo
-    echo "targets.csv を作成して計測対象URLを設定してください"
+    echo "input/targets.csv を作成して計測対象URLを設定してください"
     read -p "何かキーを押すと終了します..."
     exit 1
 fi
@@ -107,7 +107,7 @@ echo "=========================================="
 echo
 
 # Python実行
-python -m src.main --strategy $strategy $dryrun
+python -m src.cli.psi_main --strategy $strategy $dryrun
 
 if [ $? -eq 0 ]; then
     echo

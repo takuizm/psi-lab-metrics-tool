@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from src.config_manager import ConfigManager, ConfigError
+from src.io.config_manager import ConfigManager, ConfigError
 
 
 def _write_config(path: Path):

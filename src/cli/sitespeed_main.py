@@ -16,15 +16,15 @@ from typing import Any, Dict, List, Optional
 
 import click
 
-from .config_manager import ConfigManager, ConfigError
-from .csv_loader import CSVLoader, CSVError
-from .sitespeed_client import (
+from src.io.config_manager import ConfigManager, ConfigError
+from src.io.csv_loader import CSVLoader, CSVError
+from src.clients.sitespeed_client import (
     SitespeedClient,
     SitespeedError,
     SitespeedNotFoundError,
     check_sitespeed_installation,
 )
-from .sitespeed_extractor import SitespeedExtractor, SitespeedExtractionError
+from src.extractors.sitespeed_extractor import SitespeedExtractor, SitespeedExtractionError
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ api:
 
 # 入力設定
 input:
-  targets_csv: "./targets.csv"  # 計測対象URL一覧CSV
+  targets_csv: "./input/targets.csv"  # 計測対象URL一覧CSV
   csv_encoding: "utf-8-sig"            # CSVファイルエンコーディング
 
 # 実行設定
