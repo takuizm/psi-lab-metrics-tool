@@ -36,11 +36,12 @@ MANIFEST
 .env.production
 .env.staging
 
-# 実行結果・ログファイル
-output/csv/*.csv
-output/json/*.json
-logs/*.log
-logs/*.txt
+# 実行結果・ログファイル（ディレクトリごと無視）
+logs/
+output/
+
+# テスト用ターゲットファイル
+input/targets_test.csv
 
 # 一時ファイル・キャッシュ
 *.tmp
