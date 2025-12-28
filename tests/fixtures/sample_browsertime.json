@@ -1,0 +1,33 @@
+[
+  {
+    "info": {
+      "url": "https://example.com/",
+      "timestamp": "2024-12-17T10:00:00.000Z"
+    },
+    "browserScripts": [
+      {
+        "timings": {
+          "navigationTiming": {
+            "domContentLoadedEventStart": 500,
+            "loadEventStart": 1500
+          },
+          "paintTiming": {
+            "first-contentful-paint": 350
+          },
+          "largestContentfulPaint": {
+            "renderTime": 800
+          }
+        }
+      }
+    ],
+    "visualMetrics": [
+      {
+        "SpeedIndex": 650,
+        "FirstVisualChange": 300,
+        "LastVisualChange": 1400,
+        "VisualComplete85": 1000,
+        "VisualComplete99": 1350
+      }
+    ]
+  }
+]

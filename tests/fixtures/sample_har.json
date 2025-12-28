@@ -1,0 +1,158 @@
+{
+  "log": {
+    "version": "1.2",
+    "creator": {
+      "name": "sitespeed.io",
+      "version": "30.0.0"
+    },
+    "pages": [
+      {
+        "startedDateTime": "2024-12-17T10:00:00.000Z",
+        "id": "https://example.com/",
+        "title": "Example Domain",
+        "pageTimings": {
+          "onContentLoad": 500,
+          "onLoad": 1500
+        },
+        "_timings": {
+          "firstContentfulPaint": 350,
+          "largestContentfulPaint": 800
+        }
+      }
+    ],
+    "entries": [
+      {
+        "startedDateTime": "2024-12-17T10:00:00.000Z",
+        "time": 180,
+        "request": {
+          "method": "GET",
+          "url": "https://example.com/",
+          "httpVersion": "HTTP/2",
+          "headers": []
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": [
+            {"name": "Content-Type", "value": "text/html; charset=UTF-8"}
+          ],
+          "content": {
+            "size": 45000,
+            "mimeType": "text/html"
+          },
+          "bodySize": 45000,
+          "_transferSize": 15000
+        },
+        "timings": {
+          "blocked": 5,
+          "dns": 25,
+          "connect": 35,
+          "ssl": 45,
+          "send": 2,
+          "wait": 50,
+          "receive": 18
+        },
+        "serverIPAddress": "93.184.216.34"
+      },
+      {
+        "startedDateTime": "2024-12-17T10:00:00.200Z",
+        "time": 120,
+        "request": {
+          "method": "GET",
+          "url": "https://example.com/styles.css",
+          "httpVersion": "HTTP/2",
+          "headers": []
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": [
+            {"name": "Content-Type", "value": "text/css"}
+          ],
+          "content": {
+            "size": 25000,
+            "mimeType": "text/css"
+          },
+          "bodySize": 25000,
+          "_transferSize": 8000
+        },
+        "timings": {
+          "blocked": 2,
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 1,
+          "wait": 80,
+          "receive": 37
+        },
+        "serverIPAddress": "93.184.216.34"
+      },
+      {
+        "startedDateTime": "2024-12-17T10:00:00.250Z",
+        "time": 150,
+        "request": {
+          "method": "GET",
+          "url": "https://example.com/app.js",
+          "httpVersion": "HTTP/2",
+          "headers": []
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": [
+            {"name": "Content-Type", "value": "application/javascript"}
+          ],
+          "content": {
+            "size": 80000,
+            "mimeType": "application/javascript"
+          },
+          "bodySize": 80000,
+          "_transferSize": 25000
+        },
+        "timings": {
+          "blocked": 3,
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 1,
+          "wait": 100,
+          "receive": 46
+        },
+        "serverIPAddress": "93.184.216.34"
+      },
+      {
+        "startedDateTime": "2024-12-17T10:00:00.400Z",
+        "time": 200,
+        "request": {
+          "method": "GET",
+          "url": "https://example.com/logo.png",
+          "httpVersion": "HTTP/2",
+          "headers": []
+        },
+        "response": {
+          "status": 200,
+          "statusText": "OK",
+          "headers": [
+            {"name": "Content-Type", "value": "image/png"}
+          ],
+          "content": {
+            "size": 50000,
+            "mimeType": "image/png"
+          },
+          "bodySize": 50000,
+          "_transferSize": 48000
+        },
+        "timings": {
+          "blocked": 5,
+          "dns": -1,
+          "connect": -1,
+          "ssl": -1,
+          "send": 2,
+          "wait": 120,
+          "receive": 73
+        },
+        "serverIPAddress": "93.184.216.34"
+      }
+    ]
+  }
+}
