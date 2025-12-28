@@ -36,9 +36,15 @@ MANIFEST
 .env.production
 .env.staging
 
-# 実行結果・ログファイル（ディレクトリごと無視）
-logs/
-output/
+# 実行結果・ログファイル（中身のみ無視、フォルダ構造は維持）
+logs/*
+!logs/.gitkeep
+output/csv/*
+output/json/*
+output/sitespeed/*
+output/waterfall/*
+output/old/
+!output/*/.gitkeep
 
 # テスト用ターゲットファイル
 input/targets_test.csv
