@@ -94,5 +94,6 @@ poetry.lock
 
 # Claude Code Harness (開発者固有)
 .claude/
+.claude-code-harness/
 .claude-code-harness-version
 Plans.md
