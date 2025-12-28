@@ -71,6 +71,7 @@ class TestSitespeedExtractor:
         assert metrics["dns_ms"] == 25
         assert metrics["connect_ms"] == 35
         assert metrics["ssl_ms"] == 45
+        assert metrics["total_size"] == 96000
 
     def test_extract_waterfall_entries(self, extractor, sample_har_path):
         """エントリが正しく抽出されること"""

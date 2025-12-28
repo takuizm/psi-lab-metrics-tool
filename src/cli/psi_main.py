@@ -349,6 +349,7 @@ class MainProcessor:
                     result = future.result()
                 except Exception as exc:
                     self.logger.error(f"並列タスクエラー: {target['name']} ({strategy}) - {exc}")
+                    self.processing_stats['total_requests'] += 1
                     failed_items.append({
                         'target': target['name'],
                         'url': target['url'],
@@ -361,6 +362,8 @@ class MainProcessor:
                 worker_stats = result.get('psi_stats', {})
                 self._merge_psi_stats(worker_stats)
                 self.processing_stats['processed_targets'] += 1
+                if result.get('request_attempted', True):
+                    self.processing_stats['total_requests'] += 1
 
                 progress = (completed / max(1, total_futures)) * 100
                 self.logger.info(f"進捗 {completed}/{total_futures} ({progress:.1f}%) - "
@@ -369,7 +372,6 @@ class MainProcessor:
                 status = result.get('status')
                 if status == 'success':
                     metrics = result['metrics']
-                    self.processing_stats['total_requests'] += 1
                     all_metrics.append(metrics)
 
                     try:
@@ -432,10 +434,12 @@ class MainProcessor:
             'metrics': None,
             'summary': None,
             'psi_stats': {},
-            'error_message': ''
+            'error_message': '',
+            'request_attempted': False
         }
 
         try:
+            response['request_attempted'] = True
             psi_data = worker_client.get_page_metrics(target['url'], strategy)
             target_info = {
                 'name': target['name'],
@@ -500,8 +504,8 @@ class MainProcessor:
         url = target['url']
 
         # PSIデータ取得
-        psi_data = self.psi_client.get_page_metrics(url, strategy)
         self.processing_stats['total_requests'] += 1
+        psi_data = self.psi_client.get_page_metrics(url, strategy)
 
         # ターゲット情報準備
         target_info = {

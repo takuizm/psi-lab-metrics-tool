@@ -185,3 +185,59 @@ def test_parallel_processing_merges_results(tmp_path, monkeypatch):
     psi_stats = processor.psi_client.get_stats()
     assert psi_stats["total_requests"] == 4
     assert psi_stats["successful_requests"] == 4
+
+
+def test_processing_stats_counts_failed_requests(tmp_path, monkeypatch):
+    class FlakyStubPSIClient(StubPSIClient):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._call_count = 0
+
+        def get_page_metrics(self, url: str, strategy: str) -> Dict[str, Any]:
+            self._call_count += 1
+            self.stats["total_requests"] += 1
+            if self._call_count == 1:
+                self.stats["failed_requests"] += 1
+                raise RuntimeError("PSI failure")
+            self.stats["successful_requests"] += 1
+            return {"dummy": True}
+
+    monkeypatch.setattr(main_module, "PSIClient", FlakyStubPSIClient)
+
+    config = {
+        "api": {
+            "key": "dummy",
+            "timeout": 30,
+            "retry_count": 1,
+            "base_delay": 1,
+            "max_delay": 60,
+        },
+        "input": {
+            "targets_csv": str(tmp_path / "targets.csv"),
+            "csv_encoding": "utf-8-sig",
+        },
+        "execution": {
+            "parallel": False,
+        },
+        "output": {
+            "json_dir": str(tmp_path / "output" / "json"),
+            "csv_file": str(tmp_path / "output" / "csv" / "psi_metrics.csv"),
+            "log_file": str(tmp_path / "logs" / "execution.log"),
+            "timestamp_format": "%Y%m%d_%H%M%S",
+        },
+        "logging": {
+            "level": "WARNING",
+            "format": "%(message)s",
+        },
+    }
+
+    (tmp_path / "output" / "json").mkdir(parents=True)
+    (tmp_path / "output" / "csv").mkdir(parents=True)
+    (tmp_path / "logs").mkdir(parents=True)
+
+    processor = main_module.MainProcessor(config)
+    result = processor.process_all_targets(["mobile", "desktop"], dry_run=False)
+
+    assert result["success"] is False
+    assert processor.processing_stats["total_requests"] == 4
+    assert result["stats"]["total_requests"] == 4

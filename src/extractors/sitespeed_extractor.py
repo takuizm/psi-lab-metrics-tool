@@ -275,8 +275,15 @@ class SitespeedExtractor(BaseExtractor):
 
         # 総サイズ計算
         for entry in entries:
-            response = entry.get('response', {})
-            size = response.get('_transferSize', response.get('bodySize', 0))
+            size = entry.get('transfer_size', 0)
+            if not size or size <= 0:
+                size = entry.get('content_size', 0)
+
+            if not size or size <= 0:
+                response = entry.get('response')
+                if isinstance(response, dict):
+                    size = response.get('_transferSize', response.get('bodySize', 0))
+
             if size > 0:
                 metrics['total_size'] += size
 
